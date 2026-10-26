@@ -19,7 +19,7 @@ build:
 	mkdir -p build
 
 flash: build/main.elf
-	pyocd flash --target <el-target-que-ya-usas> $<
+	pyocd flash -t r7fa4m1ab --base-address 0x4000 $<
 
 clean:
 	rm -rf build
