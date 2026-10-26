@@ -1,5 +1,14 @@
 #include <stdint.h>
 
+#include "util.h"
+#include "led.h"
+#include "i2c.h"
+#include "oled.h"
+#include "servo.h"
+#include "ui.h"
+
+#define CALIBRATION_MODE 0
+
 extern uint32_t _estack;
 void Reset_Handler(void);
 void Default_Handler(void);
@@ -15,36 +24,9 @@ void (*const vectors[16])(void) = {
 
 #define SCB_VTOR (*(volatile uint32_t *)0xE000ED08)
 #define PWPR (*(volatile uint8_t *)0x40040D03)
-#define PFS_BASE 0x40040800u
-#define PFS(port, pin) (*(volatile uint32_t *)(PFS_BASE + 0x40u*(port) + 4u*(pin)))
 
-#define LED_PORT 1
-#define LED_PIN 4
-#define FC_51_PORT 1
-#define FC_51_PIN 5
-
-#define PFS_PODR (1u << 0)
-#define PFS_PIDR (1u << 1)
-#define PFS_PDR (1u << 2)
-#define PFS_PCR (1u << 4)
-
-#define FC51_LOW_ACTIVE 1
-
-#define MAX_FILTER 20u
-#define SHOW_DELAY 500u
-
-static void delay(volatile uint32_t n) {
-  while(n--) __asm__ ("nop");
-}
-
-static uint32_t object_detected(void) {
-  uint32_t level = (PFS(FC_51_PORT, FC_51_PIN) & PFS_PIDR) ? 1u : 0u;
-  return FC51_LOW_ACTIVE ? (level ^ 1u) : level;
-}
-
-static void led_set(uint32_t on) {
-  PFS(LED_PORT, LED_PIN) = PFS_PDR | (on ? PFS_PODR : 0u);
-}
+#define BTN_PORT 1
+#define BTN_PIN 5
 
 int main(void) {
   SCB_VTOR = 0x00004000;
@@ -52,34 +34,56 @@ int main(void) {
   PWPR = 0x00;
   PWPR = 0x40;
 
-  PFS(FC_51_PORT, FC_51_PIN) = PFS_PCR;
+#if CALIBRATION_MODE
+  gpt0_pwm_init(5u, PCLKD_HZ / 1024u, (PCLKD_HZ / 1024u) / 2u);
+  while (1);
+#else
+  PFS(BTN_PORT, BTN_PIN) = PFS_PCR;
   delay(1000);
 
-  uint32_t detected = object_detected();
-  uint32_t count = detected ? MAX_FILTER : 0u;
-  led_set(detected);
+  uint32_t led_on = 0;
+  uint32_t angle  = 0;
 
-  while(1) {
-    if(object_detected() && count < MAX_FILTER)
-      count++;
-    else if(count > 0u) {
-      count--;
+  led_set(led_on);
+  gpt0_pwm_init(PWM_TPCS, PERIOD_TICKS, angle_to_ticks(angle));
+
+  i2c_init();
+  delay(100000);
+
+  if(!oled_init()) led_blink(5);
+
+  ui_show_wait();
+  oled_bar(UI_PAGE_BAR, angle);
+
+  uint32_t prev = (PFS(BTN_PORT, BTN_PIN) & PFS_PIDR) ? 1 : 0;
+
+  while (1) {
+    uint32_t now = (PFS(BTN_PORT, BTN_PIN) & PFS_PIDR) ? 1 : 0;
+
+    if (prev == 1 && now == 0) {
+      led_on ^= 1;
+      led_set(led_on);
+
+      if (led_on) {
+        angle = (angle >= 180u) ? 0u : angle + 45u;
+        servo_set_angle(angle);
+        ui_show_angle(angle);
+      } else 
+        ui_show_wait();
+
+      delay(50000);
     }
-
-    if(count == MAX_FILTER && !detected) {
-      detected = 1;
-      led_set(1);
-    } else if(count == 0u && detected) {
-      detected = 0;
-      led_set(0);
-    }
-
-    delay(SHOW_DELAY);
+    
+    prev = now;
   }
+
+#endif
+
+  return 0;
 }
 
 void Default_Handler(void) { while(1); }
 void Reset_Handler(void) {
   main();
-  while(1);
+  while (1);
 }

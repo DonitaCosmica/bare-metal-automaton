@@ -2,26 +2,51 @@ CROSS   = arm-none-eabi-
 CC      = $(CROSS)gcc
 OBJCOPY = $(CROSS)objcopy
 SIZE    = $(CROSS)size
+PYOCD  ?= pyocd
 
-CFLAGS  = -mcpu=cortex-m4 -mthumb -Os -g -Wall -Wextra -ffreestanding
-LDFLAGS = -nostdlib -T linker/ra4m1.ld -Wl,--gc-sections -Wl,-Map=build/main.map
+TARGET     = main
+BUILD      = build
+SRC        = $(wildcard src/*.c)
+OBJ        = $(SRC:src/%.c=$(BUILD)/%.o)
+DEP        = $(OBJ:.o=.d)
 
-all: build/main.bin
+CHIP       = r7fa4m1ab
+FLASH_ADDR = 0x4000
 
-build/main.elf: src/main.c linker/ra4m1.ld | build
-	$(CC) $(CFLAGS) src/main.c $(LDFLAGS) -o $@
+CFLAGS  = -mcpu=cortex-m4 -mthumb -Os -g -Wall -Wextra -ffreestanding \
+          -ffunction-sections -fdata-sections -fno-tree-loop-distribute-patterns \
+          -Iinclude -MMD -MP
+
+LDFLAGS = -mcpu=cortex-m4 -mthumb -nostdlib -T linker/ra4m1.ld \
+          -Wl,--gc-sections -Wl,-Map=$(BUILD)/$(TARGET).map
+
+all: $(BUILD)/$(TARGET).bin
+
+$(BUILD)/%.o: src/%.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/$(TARGET).elf: $(OBJ) linker/ra4m1.ld
+	$(CC) $(OBJ) $(LDFLAGS) -o $@
 	$(SIZE) $@
 
-build/main.bin: build/main.elf
+$(BUILD)/$(TARGET).bin: $(BUILD)/$(TARGET).elf
 	$(OBJCOPY) -O binary $< $@
 
-build:
-	mkdir -p build
+$(BUILD):
+	mkdir -p $(BUILD)
 
-flash: build/main.elf
-	pyocd flash -t r7fa4m1ab --base-address 0x4000 $<
+flash: $(BUILD)/$(TARGET).bin
+	$(PYOCD) flash -t $(CHIP) --base-address $(FLASH_ADDR) $<
+
+reset:
+	$(PYOCD) reset -t $(CHIP)
+
+size: $(BUILD)/$(TARGET).elf
+	$(SIZE) $<
 
 clean:
-	rm -rf build
+	rm -rf $(BUILD)
 
-.PHONY: all flash clean
+-include $(DEP)
+
+.PHONY: all flash reset size clean

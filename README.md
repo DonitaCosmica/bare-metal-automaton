@@ -358,6 +358,9 @@ Para ver lo que genera el compilador: `arm-none-eabi-objdump -d main.elf`
 
 Por medio del archivo Makefile se puede compilar el proyecto de manera mas sencilla
 
-- make: Compila el proyecto general para crear un archivo binario.
-- make flash: Se encarga de flashear el codigo en la placa Arduino.
-- make clean: Se encarga de limpiar el proyecto. Borrar los archivos .elf .bin para volver a compilar el proyecto.
+- make: compila todo
+- make -j: compila en paralelo
+- make flash: compila si hace falta y flashea
+- make reset: reinicia la placa
+- make size: tamaño del programa
+- make clean: borra build/
