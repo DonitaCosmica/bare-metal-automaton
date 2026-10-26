@@ -1,0 +1,12 @@
+# Compilación
+build/
+*.elf
+*.bin
+*.o
+*.map
+
+# Entornos virtuales
+.venv*/
+
+# Editor (si no compartes configuración útil)
+.vscode/
