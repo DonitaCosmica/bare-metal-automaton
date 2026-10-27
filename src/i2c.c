@@ -1,10 +1,10 @@
 #include "i2c.h"
 #include "util.h"
 
-#define SCL_PORT 0
-#define SCL_PIN 14
-#define SDA_PORT 0
-#define SDA_PIN 0
+#define SDA_PORT 1 // P101 - A4
+#define SDA_PIN 1
+#define SCL_PORT 1 // P100 - A5
+#define SCL_PIN 0
 
 #define I2C_DELAY 20u
 

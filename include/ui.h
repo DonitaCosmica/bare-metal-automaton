@@ -3,9 +3,12 @@
 
 #include <stdint.h>
 
-#define UI_PAGE_BAR 5u
-
-void ui_show_angle(uint32_t);
-void ui_show_wait(void);
+void ui_init(void);
+void ui_show_message(const char*);
+void ui_show_parked(uint32_t, uint32_t);
+void ui_show_ticket_info(uint32_t, uint32_t, uint32_t);
+void ui_show_money_paid(uint32_t, uint32_t);
+void ui_show_paid(uint32_t, uint32_t);
+void ui_show_refund(const char*, uint32_t); 
 
 #endif
